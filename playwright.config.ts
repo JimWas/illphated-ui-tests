@@ -15,7 +15,7 @@ export default defineConfig({
     : [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   outputDir: process.env.TEST_RESULTS_DIR ?? 'test-results',
   use: {
-    baseURL: process.env.BASE_URL ?? 'https://illphated.com',
+    baseURL: process.env.BASE_URL ?? 'https://www.twitch.tv/strykerusa',
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
     ignoreHTTPSErrors: false,

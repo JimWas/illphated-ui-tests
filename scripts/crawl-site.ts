@@ -4,8 +4,8 @@ import { crawlSite } from '../crawler/crawler.js';
 
 const output = resolve(process.env.PAGES_FILE ?? 'test-data/pages.json');
 const pages = await crawlSite({
-  baseUrl: process.env.BASE_URL ?? 'https://illphated.com',
-  maxPages: Number(process.env.MAX_PAGES ?? 1000),
+  baseUrl: process.env.BASE_URL ?? 'https://www.twitch.tv/strykerusa',
+  maxPages: Number(process.env.MAX_PAGES ?? 1),
   timeoutMs: Number(process.env.CRAWL_TIMEOUT_MS ?? 30_000),
   concurrency: Number(process.env.CRAWL_CONCURRENCY ?? 4)
 });

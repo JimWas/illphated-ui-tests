@@ -1,6 +1,6 @@
 # illphated-ui-tests
 
-Production-grade Playwright monitoring for every discoverable page on [illphated.com](https://illphated.com). It combines browser health checks, responsive coverage, axe accessibility scans, Lighthouse audits, link validation, screenshots, and visual regression testing.
+Production-grade Playwright monitoring for [twitch.tv/strykerusa](https://www.twitch.tv/strykerusa). It combines browser health checks, responsive coverage, axe accessibility scans, Lighthouse audits, link validation, screenshots, and visual regression testing.
 
 ## Install and run
 
@@ -13,7 +13,7 @@ npm run crawl
 npm test
 ```
 
-The crawler renders pages in Chromium, follows internal links, reads nested sitemaps, normalizes URLs, removes duplicates, and writes `test-data/pages.json`. Configure it with `BASE_URL`, `MAX_PAGES`, `CRAWL_TIMEOUT_MS`, and `CRAWL_CONCURRENCY`.
+The crawler renders the target in Chromium and writes `test-data/pages.json`. It supports internal links and nested sitemaps, but this workflow sets `MAX_PAGES=1` so all 20 forced shards test the requested Twitch channel rather than crawling Twitch's entire platform. Configure it with `BASE_URL`, `MAX_PAGES`, `CRAWL_TIMEOUT_MS`, and `CRAWL_CONCURRENCY`.
 
 Useful commands:
 
@@ -69,10 +69,10 @@ No notification step runs when its secret is absent or the tests pass.
 
 | Variable | Default | Purpose |
 |---|---:|---|
-| `BASE_URL` | `https://illphated.com` | Crawl origin |
+| `BASE_URL` | `https://www.twitch.tv/strykerusa` | Target channel URL |
 | `PAGES_FILE` | `test-data/pages.json` | Test URL input |
 | `SHARD_COUNT` | `20` | Exact number of concurrent shard jobs |
-| `MAX_PAGES` | `1000` | Crawl safety limit |
+| `MAX_PAGES` | `1` | Crawl safety limit; prevents platform-wide Twitch crawling |
 | `TEST_TIMEOUT_MS` | `60000` | Per-test timeout |
 | `LIGHTHOUSE_MIN_SCORE` | `0.70` | Category threshold |
 | `MAX_DIFF_PIXEL_RATIO` | `0.01` | Visual tolerance |

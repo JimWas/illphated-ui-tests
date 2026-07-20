@@ -7,11 +7,12 @@ export interface CrawlOptions { baseUrl: string; maxPages: number; timeoutMs: nu
 export async function crawlSite(options: CrawlOptions): Promise<string[]> {
   const origin = new URL(options.baseUrl).origin;
   const api = await request.newContext();
-  const sitemapUrls = await discoverSitemapUrls(api, options.baseUrl);
+  const sitemapUrls = options.maxPages > 1 ? await discoverSitemapUrls(api, options.baseUrl) : [];
   await api.dispose();
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
-  const queue = [normalizeUrl(options.baseUrl, options.baseUrl, origin)!, ...sitemapUrls];
+  // Respect the safety cap for sitemap seeds as well as rendered links.
+  const queue = [normalizeUrl(options.baseUrl, options.baseUrl, origin)!, ...sitemapUrls].slice(0, options.maxPages);
   const discovered = new Set(queue);
   const visited = new Set<string>();
 

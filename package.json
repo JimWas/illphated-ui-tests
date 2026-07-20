@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Production UI monitoring for illphated.com",
+  "description": "Production UI monitoring for the Twitch channel strykerusa",
   "scripts": {
     "crawl": "node --import tsx scripts/crawl-site.ts",
     "shard": "node --import tsx scripts/create-shards.ts",

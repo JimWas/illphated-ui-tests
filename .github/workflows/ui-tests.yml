@@ -26,7 +26,8 @@ permissions:
   contents: read
 
 env:
-  BASE_URL: https://illphated.com
+  BASE_URL: https://www.twitch.tv/strykerusa
+  MAX_PAGES: 1
   SHARD_COUNT: 20
   LIGHTHOUSE_MIN_SCORE: 0.70
 
@@ -208,7 +209,7 @@ jobs:
           WEBHOOK: ${{ env.SLACK_WEBHOOK_URL }}
         run: |
           curl -fsS -X POST -H 'Content-Type: application/json' \
-            --data "{\"text\":\"illphated.com UI tests failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
+            --data "{\"text\":\"Twitch strykerusa UI tests failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
             "$WEBHOOK"
       - name: Notify Discord on failure
         if: ${{ needs.test.result != 'success' && env.DISCORD_WEBHOOK_URL != '' }}
@@ -216,7 +217,7 @@ jobs:
           WEBHOOK: ${{ env.DISCORD_WEBHOOK_URL }}
         run: |
           curl -fsS -X POST -H 'Content-Type: application/json' \
-            --data "{\"content\":\"illphated.com UI tests failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
+            --data "{\"content\":\"Twitch strykerusa UI tests failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
             "$WEBHOOK"
       - name: Fail workflow when tests failed
         if: ${{ needs.test.result != 'success' }}
