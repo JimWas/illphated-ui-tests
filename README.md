@@ -44,7 +44,7 @@ CI initializes Linux baselines only when a shard has no cached or committed Linu
 
 ## GitHub Actions and 20-way sharding
 
-`ui-tests.yml` runs on pushes, pull requests, manual dispatches, and as a reusable workflow. Its discovery job crawls the live site and divides the resulting array by round-robin assignment into at most 20 non-empty shard files. The matrix is generated from the crawl result; URLs are not hardcoded in the test suites. Up to 20 Ubuntu runners then receive their own shard file and execute all suites. `fail-fast` is disabled so one failure does not hide results from other shards.
+`ui-tests.yml` runs on pushes, pull requests, manual dispatches, and as a reusable workflow. Its discovery job crawls the live site and creates exactly 20 non-empty shard files by default. URLs are divided by round-robin assignment when at least 20 pages exist. When fewer than 20 pages exist, discovered URLs are cycled across the shards so all 20 Ubuntu runners still execute real tests concurrently. URLs are never hardcoded in the test suites. `fail-fast` is disabled so one failure does not hide results from other shards.
 
 The final job downloads all runner output, merges Playwright blob reports into one HTML report, uploads the combined artifact, and writes passed/failed page status plus accessibility and performance report links to the workflow summary. Open an Actions run and choose **Artifacts → combined-report**. Individual shard artifacts include Lighthouse HTML/JSON, axe JSON, screenshots, traces, and videos.
 
@@ -65,7 +65,7 @@ No notification step runs when its secret is absent or the tests pass.
 |---|---:|---|
 | `BASE_URL` | `https://illphated.com` | Crawl origin |
 | `PAGES_FILE` | `test-data/pages.json` | Test URL input |
-| `SHARD_COUNT` | `20` | Maximum shards |
+| `SHARD_COUNT` | `20` | Exact number of concurrent shard jobs |
 | `MAX_PAGES` | `1000` | Crawl safety limit |
 | `TEST_TIMEOUT_MS` | `60000` | Per-test timeout |
 | `LIGHTHOUSE_MIN_SCORE` | `0.70` | Category threshold |
