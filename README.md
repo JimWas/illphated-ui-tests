@@ -40,7 +40,7 @@ npm run test:update-snapshots
 git add tests/visual.spec.ts-snapshots
 ```
 
-CI initializes a baseline only when a shard has no cached or committed snapshot directory, and the Actions cache carries it into later runs. Existing snapshots are never updated during a CI comparison, so rendering regressions fail. A newly discovered route in an established shard therefore fails until its baseline is deliberately reviewed and added. Commit baselines for the most deterministic review workflow.
+CI initializes Linux baselines only when a shard has no cached or committed Linux snapshots, and the Actions cache carries them into later runs. This platform-specific check matters because locally committed macOS snapshots cannot be compared with Linux rendering. Existing Linux snapshots are never updated during a CI comparison, so rendering regressions fail. A newly discovered route in an established shard therefore fails until its baseline is deliberately reviewed and added. Commit baselines for the most deterministic review workflow.
 
 ## GitHub Actions and 20-way sharding
 

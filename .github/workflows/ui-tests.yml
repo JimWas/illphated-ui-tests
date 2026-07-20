@@ -73,7 +73,7 @@ jobs:
           PAGES_FILE: test-data/shards/shard-${{ matrix.shard }}.json
         shell: bash
         run: |
-          if [ ! -d tests/visual.spec.ts-snapshots ]; then
+          if ! compgen -G 'tests/visual.spec.ts-snapshots/*-linux.png' > /dev/null; then
             npx playwright test tests/visual.spec.ts --update-snapshots
           fi
           npx playwright test
