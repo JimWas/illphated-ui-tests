@@ -27,6 +27,17 @@ BASE_URL=https://www.twitch.tv/strykerusa SESSION_DURATION_MINUTES=30 npm run te
 - Set `SESSION_ALLOW_ANY_DURATION=true` only if you intentionally need outside that range.
 - The session re-checks every 30s (`SESSION_CHECK_INTERVAL_MS`) that the tab is still on `BASE_URL` and that the document still has a title; uncaught page exceptions fail the run.
 - Default `npm test` stays fast: the long session is **opt-in** via `npm run test:session` (or `SESSION_ENABLED=true`).
+- Playwright’s default per-test timeout is **60 seconds**. Session mode raises that automatically (duration + 5 minute buffer) so the dwell is not killed at 60s.
+
+#### GitHub Actions session dwell
+
+Pushes, PRs, and the daily schedule still run the **quick** suite (open page → assert → close). To keep every shard on `BASE_URL` for minutes:
+
+1. Open **Actions → UI tests → Run workflow**
+2. Enable **Stay on BASE_URL for a long dwell session**
+3. Set **How long each shard stays on BASE_URL** (20–60 minutes)
+
+That sets `SESSION_ENABLED=true`, raises `TEST_TIMEOUT_MS`, and runs only `tests/session.spec.ts` on the desktop project. Without those inputs, runners leave the page within the normal ~60s test budget.
 
 Useful commands:
 
@@ -87,11 +98,11 @@ No notification step runs when its secret is absent or the tests pass.
 | `PAGES_FILE` | `test-data/pages.json` | Test URL input |
 | `SHARD_COUNT` | `20` | Exact number of concurrent shard jobs |
 | `MAX_PAGES` | `1` | Crawl safety limit; prevents platform-wide Twitch crawling |
-| `TEST_TIMEOUT_MS` | `60000` | Per-test timeout |
+| `TEST_TIMEOUT_MS` | `60000` | Per-test timeout (ms). Auto-raised when `SESSION_ENABLED=true` |
 | `LIGHTHOUSE_MIN_SCORE` | `0.70` | Category threshold |
 | `MAX_DIFF_PIXEL_RATIO` | `0.01` | Visual tolerance |
 | `SESSION_ENABLED` | (unset) | Set `true` to run the long dwell test (`npm run test:session`) |
-| `SESSION_DURATION_MINUTES` | `20` | How long to stay on `BASE_URL` (clamped 20–60) |
+| `SESSION_DURATION_MINUTES` | `20` | How long to stay on `BASE_URL` (**minutes**, clamped 20–60) |
 | `SESSION_CHECK_INTERVAL_MS` | `30000` | Health-check interval during the session |
 | `SESSION_ALLOW_ANY_DURATION` | (unset) | Set `true` to allow durations outside 20–60 minutes |
 

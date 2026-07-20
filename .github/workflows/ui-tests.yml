@@ -20,7 +20,28 @@ on:
         type: number
         required: true
         default: 300
+      session_enabled:
+        description: Stay on BASE_URL for a long dwell session (not the quick page-health suite)
+        type: boolean
+        required: true
+        default: false
+      session_duration_minutes:
+        description: How long each shard stays on BASE_URL (minutes, clamped 20–60)
+        type: number
+        required: true
+        default: 20
   workflow_call:
+    inputs:
+      session_enabled:
+        description: Stay on BASE_URL for a long dwell session
+        type: boolean
+        required: false
+        default: false
+      session_duration_minutes:
+        description: Session dwell duration in minutes (clamped 20–60)
+        type: number
+        required: false
+        default: 20
 
 permissions:
   contents: read
@@ -92,14 +113,42 @@ jobs:
           LOOP_ENABLED: ${{ inputs.loop_enabled || false }}
           LOOP_DELAY_SECONDS: ${{ inputs.loop_delay_seconds || 60 }}
           MAX_LOOP_MINUTES: ${{ inputs.max_loop_minutes || 300 }}
+          # Long dwell: keep Chromium on BASE_URL (default suite exits in seconds).
+          SESSION_ENABLED: ${{ inputs.session_enabled || false }}
+          SESSION_DURATION_MINUTES: ${{ inputs.session_duration_minutes || 20 }}
         shell: bash
         run: |
-          if ! compgen -G 'tests/visual.spec.ts-snapshots/*-linux.png' > /dev/null; then
-            npx playwright test tests/visual.spec.ts --update-snapshots
+          # Session dwell needs a Playwright budget larger than the default 60s.
+          # Duration is minutes; buffer covers navigation + screenshot + teardown.
+          if [ "$SESSION_ENABLED" = "true" ]; then
+            DURATION_MIN="${SESSION_DURATION_MINUTES:-20}"
+            # Clamp to 20–60 unless caller overrides in a custom fork.
+            if [ "$DURATION_MIN" -lt 20 ]; then DURATION_MIN=20; fi
+            if [ "$DURATION_MIN" -gt 60 ]; then DURATION_MIN=60; fi
+            # TEST_TIMEOUT_MS is milliseconds (not seconds).
+            export TEST_TIMEOUT_MS=$((DURATION_MIN * 60 * 1000 + 5 * 60 * 1000))
+            echo "Session dwell enabled: ${DURATION_MIN}m on ${BASE_URL} (TEST_TIMEOUT_MS=${TEST_TIMEOUT_MS})"
           fi
 
+          # Visual baselines are only needed for the full suite, not session dwell.
+          if [ "$SESSION_ENABLED" != "true" ]; then
+            if ! compgen -G 'tests/visual.spec.ts-snapshots/*-linux.png' > /dev/null; then
+              npx playwright test tests/visual.spec.ts --update-snapshots
+            fi
+          fi
+
+          # Prefer the dedicated session suite when dwell is requested so other
+          # short tests do not open/close the tab and end the "stay on page" goal.
+          run_tests() {
+            if [ "$SESSION_ENABLED" = "true" ]; then
+              npx playwright test tests/session.spec.ts --project=desktop
+            else
+              npx playwright test
+            fi
+          }
+
           if [ "$LOOP_ENABLED" != "true" ]; then
-            npx playwright test
+            run_tests
             exit $?
           fi
 
@@ -113,7 +162,7 @@ jobs:
             if REPORT_RUN_ID="iteration-$ITERATION" \
               TEST_RESULTS_DIR="test-results/iteration-$ITERATION" \
               BLOB_REPORT_FILE="blob-report/shard-${{ matrix.shard }}-iteration-$ITERATION.zip" \
-              npx playwright test; then
+              run_tests; then
               echo "Iteration $ITERATION passed"
             else
               ANY_FAILURE=1

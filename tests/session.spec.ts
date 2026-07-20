@@ -17,9 +17,16 @@ import {
  *   BASE_URL=https://example.com SESSION_DURATION_MINUTES=30 npm run test:session
  */
 const sessionEnabled = process.env.SESSION_ENABLED === 'true';
+// Resolve before describe so Playwright's suite timeout is not stuck at 60s.
+const sessionDurationMs = sessionEnabled ? resolveSessionDurationMs() : 0;
+const sessionSuiteTimeoutMs = sessionDurationMs + 5 * 60_000;
 
 test.describe('session dwell', () => {
   test.skip(!sessionEnabled, 'Set SESSION_ENABLED=true (or use npm run test:session)');
+  // Apply at suite level so the global 60s config cannot abort the dwell mid-session.
+  if (sessionEnabled) {
+    test.describe.configure({ timeout: sessionSuiteTimeoutMs, mode: 'serial' });
+  }
 
   test('stay on BASE_URL for the session duration', async ({ page }, testInfo) => {
     // Only one long session is needed; desktop is enough.
@@ -28,7 +35,7 @@ test.describe('session dwell', () => {
     const baseUrl = resolveBaseUrl();
     const durationMs = resolveSessionDurationMs();
     const checkIntervalMs = resolveCheckIntervalMs();
-    // Buffer for navigation, final checks, and screenshot.
+    // Buffer for navigation, final checks, and screenshot (belt-and-suspenders with suite timeout).
     test.setTimeout(durationMs + 5 * 60_000);
 
     const problems = monitorPage(page);
