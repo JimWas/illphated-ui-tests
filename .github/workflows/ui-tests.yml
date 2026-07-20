@@ -149,12 +149,18 @@ jobs:
         if: ${{ needs.test.result != 'success' && env.SLACK_WEBHOOK_URL != '' }}
         env:
           WEBHOOK: ${{ env.SLACK_WEBHOOK_URL }}
-        run: curl -fsS -X POST -H 'Content-Type: application/json' --data "{\"text\":\"illphated.com UI tests failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" "$WEBHOOK"
+        run: |
+          curl -fsS -X POST -H 'Content-Type: application/json' \
+            --data "{\"text\":\"illphated.com UI tests failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
+            "$WEBHOOK"
       - name: Notify Discord on failure
         if: ${{ needs.test.result != 'success' && env.DISCORD_WEBHOOK_URL != '' }}
         env:
           WEBHOOK: ${{ env.DISCORD_WEBHOOK_URL }}
-        run: curl -fsS -X POST -H 'Content-Type: application/json' --data "{\"content\":\"illphated.com UI tests failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" "$WEBHOOK"
+        run: |
+          curl -fsS -X POST -H 'Content-Type: application/json' \
+            --data "{\"content\":\"illphated.com UI tests failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" \
+            "$WEBHOOK"
       - name: Fail workflow when tests failed
         if: ${{ needs.test.result != 'success' }}
         run: exit 1
