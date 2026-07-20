@@ -15,11 +15,25 @@ npm test
 
 The crawler renders the target in Chromium and writes `test-data/pages.json`. It supports internal links and nested sitemaps, but this workflow sets `MAX_PAGES=1` so all 20 forced shards test the requested Twitch channel rather than crawling Twitch's entire platform. Configure it with `BASE_URL`, `MAX_PAGES`, `CRAWL_TIMEOUT_MS`, and `CRAWL_CONCURRENCY`.
 
+### Stay on BASE_URL (20–60 minute session)
+
+To keep a live Chromium tab on the target URL for a sustained session (without crawling away), run:
+
+```bash
+BASE_URL=https://www.twitch.tv/strykerusa SESSION_DURATION_MINUTES=30 npm run test:session
+```
+
+- Duration defaults to **20** minutes and is clamped to **20–60** minutes.
+- Set `SESSION_ALLOW_ANY_DURATION=true` only if you intentionally need outside that range.
+- The session re-checks every 30s (`SESSION_CHECK_INTERVAL_MS`) that the tab is still on `BASE_URL` and that the document still has a title; uncaught page exceptions fail the run.
+- Default `npm test` stays fast: the long session is **opt-in** via `npm run test:session` (or `SESSION_ENABLED=true`).
+
 Useful commands:
 
 ```bash
 npm run typecheck
 npm run shard
+npm run test:session
 npm run test:update-snapshots
 npm run merge-reports
 ```
@@ -76,6 +90,10 @@ No notification step runs when its secret is absent or the tests pass.
 | `TEST_TIMEOUT_MS` | `60000` | Per-test timeout |
 | `LIGHTHOUSE_MIN_SCORE` | `0.70` | Category threshold |
 | `MAX_DIFF_PIXEL_RATIO` | `0.01` | Visual tolerance |
+| `SESSION_ENABLED` | (unset) | Set `true` to run the long dwell test (`npm run test:session`) |
+| `SESSION_DURATION_MINUTES` | `20` | How long to stay on `BASE_URL` (clamped 20–60) |
+| `SESSION_CHECK_INTERVAL_MS` | `30000` | Health-check interval during the session |
+| `SESSION_ALLOW_ANY_DURATION` | (unset) | Set `true` to allow durations outside 20–60 minutes |
 
 ## Adding authentication
 
