@@ -1,0 +1,160 @@
+name: UI tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  BASE_URL: https://illphated.com
+  SHARD_COUNT: 20
+  LIGHTHOUSE_MIN_SCORE: 0.70
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.shards.outputs.matrix }}
+      page_count: ${{ steps.shards.outputs.page_count }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run crawl
+      - id: shards
+        shell: bash
+        run: |
+          npm run shard
+          echo "matrix=$(cat test-data/shards/matrix.json)" >> "$GITHUB_OUTPUT"
+          echo "page_count=$(node -p "require('./test-data/pages.json').length")" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: discovered-pages
+          path: test-data/
+          retention-days: 14
+
+  test:
+    needs: discover
+    if: ${{ needs.discover.outputs.matrix != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        shard: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - uses: actions/download-artifact@v4
+        with:
+          name: discovered-pages
+          path: test-data
+      - uses: actions/cache@v4
+        with:
+          path: tests/visual.spec.ts-snapshots
+          key: visual-${{ runner.os }}-${{ hashFiles('test-data/pages.json') }}-${{ matrix.shard }}-${{ github.run_id }}
+          restore-keys: |
+            visual-${{ runner.os }}-${{ hashFiles('test-data/pages.json') }}-${{ matrix.shard }}-
+      - name: Run shard
+        env:
+          PAGES_FILE: test-data/shards/shard-${{ matrix.shard }}.json
+        shell: bash
+        run: |
+          if [ ! -d tests/visual.spec.ts-snapshots ]; then
+            npx playwright test tests/visual.spec.ts --update-snapshots
+          fi
+          npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-artifacts-${{ matrix.shard }}
+          path: |
+            blob-report/
+            test-results/
+            artifacts/
+            lighthouse-reports/
+            accessibility-reports/
+            tests/visual.spec.ts-snapshots/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  report:
+    needs: [discover, test]
+    if: always()
+    runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: test-artifacts-*
+          path: downloaded
+          merge-multiple: false
+      - name: Collect blob reports
+        shell: bash
+        run: |
+          mkdir -p all-blob-reports
+          find downloaded -path '*/blob-report/*.zip' -exec cp {} all-blob-reports/ \;
+      - name: Merge Playwright report
+        if: ${{ hashFiles('all-blob-reports/*.zip') != '' }}
+        run: npm run merge-reports
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: combined-report
+          path: |
+            playwright-report/
+            downloaded/
+          retention-days: 30
+      - name: Workflow summary
+        shell: bash
+        run: |
+          if [ "${{ needs.test.result }}" = "success" ]; then
+            PASSED="${{ needs.discover.outputs.page_count }}"
+            FAILED="0"
+          else
+            PASSED="See combined report"
+            FAILED="See combined report"
+          fi
+          {
+            echo "## UI monitoring summary"
+            echo "| Metric | Result |"
+            echo "|---|---|"
+            echo "| Passed pages | $PASSED |"
+            echo "| Failed pages | $FAILED |"
+            echo "| Accessibility issues | See accessibility reports |"
+            echo "| Performance scores | See Lighthouse reports |"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Notify Slack on failure
+        if: ${{ needs.test.result != 'success' && env.SLACK_WEBHOOK_URL != '' }}
+        env:
+          WEBHOOK: ${{ env.SLACK_WEBHOOK_URL }}
+        run: curl -fsS -X POST -H 'Content-Type: application/json' --data "{\"text\":\"illphated.com UI tests failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" "$WEBHOOK"
+      - name: Notify Discord on failure
+        if: ${{ needs.test.result != 'success' && env.DISCORD_WEBHOOK_URL != '' }}
+        env:
+          WEBHOOK: ${{ env.DISCORD_WEBHOOK_URL }}
+        run: curl -fsS -X POST -H 'Content-Type: application/json' --data "{\"content\":\"illphated.com UI tests failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" "$WEBHOOK"
+      - name: Fail workflow when tests failed
+        if: ${{ needs.test.result != 'success' }}
+        run: exit 1

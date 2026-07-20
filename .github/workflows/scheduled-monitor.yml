@@ -1,0 +1,11 @@
+name: Scheduled production monitor
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    uses: ./.github/workflows/ui-tests.yml
+    secrets: inherit

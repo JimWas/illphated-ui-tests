@@ -1,0 +1,11 @@
+node_modules/
+playwright-report/
+blob-report/
+test-results/
+artifacts/
+lighthouse-reports/
+accessibility-reports/
+test-data/shards/
+.DS_Store
+.env
+

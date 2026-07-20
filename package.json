@@ -1,0 +1,25 @@
+{
+  "name": "illphated-ui-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Production UI monitoring for illphated.com",
+  "scripts": {
+    "crawl": "node --import tsx scripts/crawl-site.ts",
+    "shard": "node --import tsx scripts/create-shards.ts",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:update-snapshots": "playwright test tests/visual.spec.ts --update-snapshots",
+    "merge-reports": "node --import tsx scripts/merge-reports.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.54.1",
+    "@types/node": "^22.15.30",
+    "chrome-launcher": "^1.0.0",
+    "lighthouse": "^12.8.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  }
+}
