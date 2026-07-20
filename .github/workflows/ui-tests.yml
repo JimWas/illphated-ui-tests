@@ -4,6 +4,22 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      loop_enabled:
+        description: Keep every shard running until canceled or the time limit is reached
+        type: boolean
+        required: true
+        default: false
+      loop_delay_seconds:
+        description: Seconds to wait between complete test iterations
+        type: number
+        required: true
+        default: 60
+      max_loop_minutes:
+        description: Maximum continuous runtime in minutes
+        type: number
+        required: true
+        default: 300
   workflow_call:
 
 permissions:
@@ -45,6 +61,7 @@ jobs:
     needs: discover
     if: ${{ needs.discover.outputs.matrix != '' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     strategy:
       fail-fast: false
       max-parallel: 20
@@ -71,12 +88,52 @@ jobs:
       - name: Run shard
         env:
           PAGES_FILE: test-data/shards/shard-${{ matrix.shard }}.json
+          LOOP_ENABLED: ${{ inputs.loop_enabled || false }}
+          LOOP_DELAY_SECONDS: ${{ inputs.loop_delay_seconds || 60 }}
+          MAX_LOOP_MINUTES: ${{ inputs.max_loop_minutes || 300 }}
         shell: bash
         run: |
           if ! compgen -G 'tests/visual.spec.ts-snapshots/*-linux.png' > /dev/null; then
             npx playwright test tests/visual.spec.ts --update-snapshots
           fi
-          npx playwright test
+
+          if [ "$LOOP_ENABLED" != "true" ]; then
+            npx playwright test
+            exit $?
+          fi
+
+          STARTED_AT=$(date +%s)
+          END_AT=$((STARTED_AT + MAX_LOOP_MINUTES * 60))
+          ITERATION=1
+          ANY_FAILURE=0
+
+          while [ "$(date +%s)" -lt "$END_AT" ]; do
+            echo "::group::Shard ${{ matrix.shard }} iteration $ITERATION"
+            if REPORT_RUN_ID="iteration-$ITERATION" \
+              TEST_RESULTS_DIR="test-results/iteration-$ITERATION" \
+              BLOB_REPORT_FILE="blob-report/shard-${{ matrix.shard }}-iteration-$ITERATION.zip" \
+              npx playwright test; then
+              echo "Iteration $ITERATION passed"
+            else
+              ANY_FAILURE=1
+              echo "Iteration $ITERATION failed; continuing until canceled or time limit"
+            fi
+            echo "::endgroup::"
+            ITERATION=$((ITERATION + 1))
+
+            NOW=$(date +%s)
+            if [ "$NOW" -lt "$END_AT" ]; then
+              REMAINING=$((END_AT - NOW))
+              if [ "$REMAINING" -lt "$LOOP_DELAY_SECONDS" ]; then
+                sleep "$REMAINING"
+              else
+                sleep "$LOOP_DELAY_SECONDS"
+              fi
+            fi
+          done
+
+          echo "Completed $((ITERATION - 1)) iterations on shard ${{ matrix.shard }}"
+          exit "$ANY_FAILURE"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

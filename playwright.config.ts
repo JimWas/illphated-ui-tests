@@ -9,8 +9,11 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 2 : undefined,
   reporter: process.env.CI
-    ? [['line'], ['blob', { outputDir: 'blob-report' }]]
+    ? [['line'], ['blob', process.env.BLOB_REPORT_FILE
+      ? { outputFile: process.env.BLOB_REPORT_FILE }
+      : { outputDir: 'blob-report' }]]
     : [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
+  outputDir: process.env.TEST_RESULTS_DIR ?? 'test-results',
   use: {
     baseURL: process.env.BASE_URL ?? 'https://illphated.com',
     actionTimeout: 15_000,

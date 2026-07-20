@@ -50,6 +50,12 @@ The final job downloads all runner output, merges Playwright blob reports into o
 
 `scheduled-monitor.yml` invokes the same pipeline every day at 06:17 UTC and also supports manual runs.
 
+### Continuous 20-runner mode
+
+Open **Actions → UI tests → Run workflow**, enable **Keep every shard running**, and choose the delay and maximum runtime. The defaults repeat the complete suite on all 20 runners, pause 60 seconds between iterations, and stop after 300 minutes. Pushes, pull requests, and scheduled monitoring remain one-shot runs.
+
+Every iteration gets its own Playwright blob report, test-results directory, screenshots, Lighthouse reports, and accessibility reports. A failed iteration is recorded but does not stop the loop. When the time limit is reached, the shard reports failure if any iteration failed. Click **Cancel workflow** at any time to stop all running and queued shards. GitHub-hosted runners impose an absolute job limit, so the workflow timeout is capped at six hours.
+
 ## Notifications
 
 Add either repository Actions secret to enable failure-only notifications:

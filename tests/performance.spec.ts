@@ -19,7 +19,7 @@ for (const url of testPages()) {
       });
       if (!result) throw new Error(`Lighthouse produced no result for ${url}`);
       const slug = Buffer.from(url).toString('base64url');
-      const directory = resolve('lighthouse-reports');
+      const directory = resolve('lighthouse-reports', ...(process.env.REPORT_RUN_ID ? [process.env.REPORT_RUN_ID] : []));
       await mkdir(directory, { recursive: true });
       const reports = Array.isArray(result.report) ? result.report : [result.report];
       await writeFile(resolve(directory, `${slug}.html`), reports[0]);
