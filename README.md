@@ -46,7 +46,7 @@ CI initializes Linux baselines only when a shard has no cached or committed Linu
 
 `ui-tests.yml` runs on pushes, pull requests, manual dispatches, and as a reusable workflow. Its discovery job crawls the live site and creates exactly 20 non-empty shard files by default. URLs are divided by round-robin assignment when at least 20 pages exist. When fewer than 20 pages exist, discovered URLs are cycled across the shards so all 20 Ubuntu runners still execute real tests concurrently. URLs are never hardcoded in the test suites. `fail-fast` is disabled so one failure does not hide results from other shards.
 
-The final job downloads all runner output, merges Playwright blob reports into one HTML report, uploads the combined artifact, and writes passed/failed page status plus accessibility and performance report links to the workflow summary. Open an Actions run and choose **Artifacts → combined-report**. Individual shard artifacts include Lighthouse HTML/JSON, axe JSON, screenshots, traces, and videos.
+The final job downloads all runner output, merges Playwright blob reports into one HTML report, uploads the combined artifact, and writes passed/failed page status plus accessibility and performance report links to the workflow summary. Open an Actions run and choose **Artifacts → combined-report**. Individual shard artifacts include Lighthouse HTML/JSON, axe JSON, screenshots, traces, and videos. All crawler, shard, and combined-report artifacts are retained for 90 days so the team can review them asynchronously.
 
 `scheduled-monitor.yml` invokes the same pipeline every day at 06:17 UTC and also supports manual runs.
 

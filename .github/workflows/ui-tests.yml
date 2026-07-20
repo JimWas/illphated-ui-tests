@@ -56,7 +56,7 @@ jobs:
         with:
           name: discovered-pages
           path: test-data/
-          retention-days: 14
+          retention-days: 90
 
   test:
     needs: discover
@@ -147,7 +147,7 @@ jobs:
             accessibility-reports/
             tests/visual.spec.ts-snapshots/
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 90
 
   report:
     needs: [discover, test]
@@ -183,7 +183,7 @@ jobs:
           path: |
             playwright-report/
             downloaded/
-          retention-days: 30
+          retention-days: 90
       - name: Workflow summary
         shell: bash
         run: |
