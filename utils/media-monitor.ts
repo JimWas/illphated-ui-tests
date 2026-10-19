@@ -1,5 +1,6 @@
 import type { Page, TestInfo } from '@playwright/test';
 import { checkMedia, startMedia } from './media.js';
+import { resolveSessionStartupMs } from './session.js';
 import { inspectPlayer, interruptionExpired } from './player-state.js';
 
 export function createMediaMonitor(page: Page, testInfo: TestInfo) {
@@ -49,7 +50,10 @@ export function createMediaMonitor(page: Page, testInfo: TestInfo) {
           }
           console.log(`Media interruption #${failures}: ${String(error)}`);
           const elapsed = Date.now() - began;
-          if (elapsed >= 180_000 || interruptionExpired(failures, elapsed, startup, adSince !== undefined)) {
+          const expired = startup
+            ? elapsed >= resolveSessionStartupMs()
+            : elapsed >= 180_000 || interruptionExpired(failures, elapsed, false, adSince !== undefined);
+          if (expired) {
             throw new Error(`Media did not recover (${after.state}, ${failures} failed checks): ${String(error)}`);
           }
           await page.waitForTimeout(5_000);

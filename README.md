@@ -15,7 +15,7 @@ npm test
 
 The crawler renders the target in Chromium and writes `test-data/pages.json`. It supports internal links and nested sitemaps, but this workflow sets `MAX_PAGES=1` so all 20 forced shards test the requested Twitch channel rather than crawling Twitch's entire platform. Configure it with `BASE_URL`, `MAX_PAGES`, `CRAWL_TIMEOUT_MS`, and `CRAWL_CONCURRENCY`.
 
-### Stay on BASE_URL (20–60 minute session)
+### Stay on BASE_URL (20–240 minute session)
 
 To keep a live Chromium tab on the target URL for a sustained session (without crawling away), run:
 
@@ -23,23 +23,23 @@ To keep a live Chromium tab on the target URL for a sustained session (without c
 BASE_URL=https://www.twitch.tv/strykerusa SESSION_DURATION_MINUTES=30 npm run test:session
 ```
 
-- Duration defaults to **20** minutes and is clamped to **20–60** minutes.
+- Duration defaults to **60** minutes and is clamped to **20–240** minutes.
 - Set `SESSION_ALLOW_ANY_DURATION=true` only if you intentionally need outside that range.
 - The session re-checks every 30s (`SESSION_CHECK_INTERVAL_MS`) that the tab is still on `BASE_URL` and that the document still has a title; uncaught page exceptions fail the run.
-- Session mode also starts and unmutes the first visible video and checks playback throughout the session. Each check samples 10 seconds: playback time and decoded video frames must advance, and a captured audio track must contain a non-silent signal. Visible Twitch indicators distinguish offline channels, buffering, advertisements, consent prompts, and player errors (best-effort selectors and English text; Twitch UI changes may require updates). Consent prompts are reported without automatically accepting them. Normal playback interruptions fail only after three consecutive unsuccessful checks or 90 seconds without recovery, whichever comes first; successful checks reset the failure streak. Failed checks retry after five seconds. Startup and visible advertisements get up to three minutes to clear, with a hard three-minute cap per recovery episode even if states alternate. Ads are not accepted as healthy channel playback. Offline channels and persistent player or audio failures still fail after their recovery window. Each unsuccessful check attaches its state, measurements when available, error, and a screenshot; the full timestamped media history is attached even if startup fails. Screenshot capture failures are recorded separately. These attachments are included in the existing GitHub combined report and shard artifacts. These checks confirm browser media output, not physical speakers, and a replay can satisfy them; they do not establish that the channel is live. Set `SESSION_CHECK_MEDIA=false` to use page-only monitoring. Audio capture uses Chromium's media capture API and may be unavailable for protected or cross-origin media.
+- Session mode also starts and unmutes the first visible video and checks playback throughout the session. Each check samples 10 seconds: playback time and decoded video frames must advance, and a captured audio track must contain a non-silent signal. Visible Twitch indicators distinguish offline channels, buffering, advertisements, consent prompts, and player errors (best-effort selectors and English text; Twitch UI changes may require updates). Consent prompts are reported without automatically accepting them. Normal playback interruptions fail only after three consecutive unsuccessful checks or 90 seconds without recovery, whichever comes first; successful checks reset the failure streak. Failed checks retry after five seconds. Startup waits up to 30 minutes for playback (`SESSION_START_TIMEOUT_MINUTES`, configurable up to 60). The requested dwell begins only after video and audio checks pass. During dwell, advertisements get up to three minutes to clear, with a hard three-minute cap per recovery episode even if states alternate. Ads are not accepted as healthy channel playback. Offline channels and persistent player or audio failures still fail after their recovery window. Each unsuccessful check attaches its state, measurements when available, error, and a screenshot; the full timestamped media history is attached even if startup fails. Screenshot capture failures are recorded separately. These attachments are included in the existing GitHub combined report and shard artifacts. These checks confirm browser media output, not physical speakers, and a replay can satisfy them; they do not establish that the channel is live. Set `SESSION_CHECK_MEDIA=false` to use page-only monitoring. Audio capture uses Chromium's media capture API and may be unavailable for protected or cross-origin media.
 - Run the isolated synthetic playback checks with `npx playwright test --config validation/playwright.config.ts`.
 - Default `npm test` stays fast: the long session is **opt-in** via `npm run test:session` (or `SESSION_ENABLED=true`).
-- Playwright’s default per-test timeout is **60 seconds**. Session mode raises that automatically (duration + 5 minute buffer) so the dwell is not killed at 60s.
+- Playwright’s default per-test timeout is **60 seconds**. Session mode raises that automatically (startup wait + duration + 5 minute buffer) so the dwell is not killed at 60s.
 
 #### GitHub Actions session dwell
 
-Pushes, PRs, and the daily schedule still run the **quick** suite (open page → assert → close). To keep every shard on `BASE_URL` for minutes:
+GitHub pushes, PRs, scheduled runs, and manual runs now default to a **60-minute desktop dwell session** on each shard. To keep every shard on `BASE_URL` for minutes:
 
 1. Open **Actions → UI tests → Run workflow**
 2. Enable **Stay on BASE_URL for a long dwell session**
-3. Set **How long each shard stays on BASE_URL** (20–60 minutes)
+3. Set **How long each shard stays on BASE_URL** (20–240 minutes)
 
-That sets `SESSION_ENABLED=true`, raises `TEST_TIMEOUT_MS`, and runs only `tests/session.spec.ts` on the desktop project. Without those inputs, runners leave the page within the normal ~60s test budget.
+That sets `SESSION_ENABLED=true`, automatically budgets startup wait plus dwell, and runs only `tests/session.spec.ts` on the desktop project. Disable the dwell input on a manual run to select the quick suite. Re-running an older Actions run uses its original workflow and inputs; start a new run on the updated branch.
 
 Useful commands:
 
@@ -79,7 +79,7 @@ The final job downloads all runner output, merges Playwright blob reports into o
 
 ### Continuous 20-runner mode
 
-Open **Actions → UI tests → Run workflow**, enable **Keep every shard running**, and choose the delay and maximum runtime. The defaults repeat the complete suite on all 20 runners, pause 60 seconds between iterations, and stop after 300 minutes. Pushes, pull requests, and scheduled monitoring remain one-shot runs.
+Open **Actions → UI tests → Run workflow**, enable **Keep every shard running**, and choose the delay and maximum runtime. The defaults repeat the selected dwell session on all 20 runners, pause 60 seconds between iterations, and stop after 300 minutes. Pushes, pull requests, and scheduled monitoring run one dwell session per shard by default.
 
 Every iteration gets its own Playwright blob report, test-results directory, screenshots, Lighthouse reports, and accessibility reports. A failed iteration is recorded but does not stop the loop. When the time limit is reached, the shard reports failure if any iteration failed. Click **Cancel workflow** at any time to stop all running and queued shards. GitHub-hosted runners impose an absolute job limit, so the workflow timeout is capped at six hours.
 
@@ -104,9 +104,10 @@ No notification step runs when its secret is absent or the tests pass.
 | `LIGHTHOUSE_MIN_SCORE` | `0.70` | Category threshold |
 | `MAX_DIFF_PIXEL_RATIO` | `0.01` | Visual tolerance |
 | `SESSION_ENABLED` | (unset) | Set `true` to run the long dwell test (`npm run test:session`) |
-| `SESSION_DURATION_MINUTES` | `20` | How long to stay on `BASE_URL` (**minutes**, clamped 20–60) |
+| `SESSION_DURATION_MINUTES` | `60` | How long to stay on `BASE_URL` (**minutes**, clamped 20–240) |
+| `SESSION_START_TIMEOUT_MINUTES` | `30` | Maximum wait for healthy playback before dwell begins (up to 60 minutes) |
 | `SESSION_CHECK_INTERVAL_MS` | `30000` | Health-check interval during the session |
-| `SESSION_ALLOW_ANY_DURATION` | (unset) | Set `true` to allow durations outside 20–60 minutes |
+| `SESSION_ALLOW_ANY_DURATION` | (unset) | Set `true` to allow durations outside 20–240 minutes |
 
 ## Adding authentication
 

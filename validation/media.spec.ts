@@ -85,3 +85,26 @@ test('repeated consent failures retain diagnostics, screenshots, and history', a
   expect(JSON.parse(String(diagnostics[0].body)).before.state).toBe('consent');
   expect(JSON.parse(String(attachments.at(-1)!.body))).toHaveLength(3);
 });
+
+import { resolveSessionDurationMs, resolveSessionStartupMs, resolveSessionTimeoutMs } from '../utils/session.js';
+
+test('session budget includes startup plus full dwell and supports over 60 minutes', () => {
+  const saved = { ...process.env };
+  try {
+    delete process.env.SESSION_ALLOW_ANY_DURATION;
+    delete process.env.SESSION_DURATION_MINUTES;
+    delete process.env.SESSION_START_TIMEOUT_MINUTES;
+    expect(resolveSessionDurationMs()).toBe(60 * 60_000);
+    expect(resolveSessionStartupMs()).toBe(30 * 60_000);
+    expect(resolveSessionTimeoutMs()).toBe(95 * 60_000);
+    process.env.SESSION_DURATION_MINUTES = '90';
+    expect(resolveSessionDurationMs()).toBe(90 * 60_000);
+    expect(resolveSessionTimeoutMs()).toBe(125 * 60_000);
+    process.env.SESSION_START_TIMEOUT_MINUTES = '0';
+    expect(() => resolveSessionStartupMs()).toThrow('SESSION_START_TIMEOUT_MINUTES');
+  } finally {
+    for (const key of ['SESSION_ALLOW_ANY_DURATION', 'SESSION_DURATION_MINUTES', 'SESSION_START_TIMEOUT_MINUTES']) {
+      if (saved[key] === undefined) delete process.env[key]; else process.env[key] = saved[key];
+    }
+  }
+});

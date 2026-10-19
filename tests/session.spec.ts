@@ -7,11 +7,12 @@ import {
   resolveBaseUrl,
   resolveCheckIntervalMs,
   resolveSessionDurationMs,
+  resolveSessionTimeoutMs,
   sleep
 } from '../utils/session.js';
 
 /**
- * Long-lived session: open BASE_URL and remain there for 20–60 minutes while
+ * Long-lived session: open BASE_URL and remain there for 20–240 minutes while
  * periodically verifying the tab has not navigated away and collecting errors.
  *
  * Only runs when SESSION_ENABLED=true so the default suite stays fast.
@@ -19,8 +20,7 @@ import {
  */
 const sessionEnabled = process.env.SESSION_ENABLED === 'true';
 // Resolve before describe so Playwright's suite timeout is not stuck at 60s.
-const sessionDurationMs = sessionEnabled ? resolveSessionDurationMs() : 0;
-const sessionSuiteTimeoutMs = sessionDurationMs + 5 * 60_000;
+const sessionSuiteTimeoutMs = sessionEnabled ? resolveSessionTimeoutMs() : 60_000;
 
 test.describe('session dwell', () => {
   test.skip(!sessionEnabled, 'Set SESSION_ENABLED=true (or use npm run test:session)');
@@ -37,11 +37,9 @@ test.describe('session dwell', () => {
     const durationMs = resolveSessionDurationMs();
     const checkIntervalMs = resolveCheckIntervalMs();
     // Buffer for navigation, final checks, and screenshot (belt-and-suspenders with suite timeout).
-    test.setTimeout(durationMs + 5 * 60_000);
+    test.setTimeout(resolveSessionTimeoutMs());
 
     const problems = monitorPage(page);
-    const startedAt = Date.now();
-    const endsAt = startedAt + durationMs;
 
     console.log(
       `Session dwell: ${baseUrl} for ${Math.round(durationMs / 60_000)} min ` +
@@ -59,6 +57,10 @@ test.describe('session dwell', () => {
         await mediaMonitor.check(true);
       }
 
+      // Waiting for a channel to start must not consume the requested dwell.
+      const startedAt = Date.now();
+      const endsAt = startedAt + durationMs;
+      console.log(`Playback ready; dwell clock started for ${durationMs / 60_000} minutes`);
       let checks = 0;
       while (Date.now() < endsAt) {
         checks += 1;

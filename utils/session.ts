@@ -1,11 +1,11 @@
 /**
  * Session dwell helpers: keep a live page on BASE_URL for a bounded duration.
- * Duration is clamped to 20–60 minutes unless SESSION_ALLOW_ANY_DURATION=true.
+ * Duration is clamped to 20–240 minutes unless SESSION_ALLOW_ANY_DURATION=true.
  */
 
 export const SESSION_MIN_MINUTES = 20;
-export const SESSION_MAX_MINUTES = 60;
-export const DEFAULT_SESSION_MINUTES = 20;
+export const SESSION_MAX_MINUTES = 240;
+export const DEFAULT_SESSION_MINUTES = 60;
 export const DEFAULT_CHECK_INTERVAL_MS = 30_000;
 
 export function resolveSessionDurationMs(): number {
@@ -59,4 +59,17 @@ export function isStillOnBaseUrl(liveUrl: string, baseUrl: string): boolean {
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Waiting for playback is separate from the dwell duration. */
+export function resolveSessionStartupMs(): number {
+  const minutes = Number(process.env.SESSION_START_TIMEOUT_MINUTES ?? 30);
+  if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 60) {
+    throw new Error('SESSION_START_TIMEOUT_MINUTES must be greater than 0 and at most 60');
+  }
+  return Math.round(minutes * 60_000);
+}
+
+export function resolveSessionTimeoutMs(): number {
+  return resolveSessionDurationMs() + resolveSessionStartupMs() + 5 * 60_000;
 }

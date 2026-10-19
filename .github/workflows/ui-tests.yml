@@ -24,24 +24,24 @@ on:
         description: Stay on BASE_URL for a long dwell session (not the quick page-health suite)
         type: boolean
         required: true
-        default: false
+        default: true
       session_duration_minutes:
-        description: How long each shard stays on BASE_URL (minutes, clamped 20–60)
+        description: How long each shard stays on BASE_URL (minutes, clamped 20–240)
         type: number
         required: true
-        default: 20
+        default: 60
   workflow_call:
     inputs:
       session_enabled:
         description: Stay on BASE_URL for a long dwell session
         type: boolean
         required: false
-        default: false
+        default: true
       session_duration_minutes:
-        description: Session dwell duration in minutes (clamped 20–60)
+        description: Session dwell duration in minutes (clamped 20–240)
         type: number
         required: false
-        default: 20
+        default: 60
 
 permissions:
   contents: read
@@ -114,21 +114,14 @@ jobs:
           LOOP_DELAY_SECONDS: ${{ inputs.loop_delay_seconds || 60 }}
           MAX_LOOP_MINUTES: ${{ inputs.max_loop_minutes || 300 }}
           # Long dwell: keep Chromium on BASE_URL (default suite exits in seconds).
-          SESSION_ENABLED: ${{ inputs.session_enabled || false }}
-          SESSION_DURATION_MINUTES: ${{ inputs.session_duration_minutes || 20 }}
+          SESSION_ENABLED: ${{ !contains(toJSON(inputs), '"session_enabled"') || inputs.session_enabled }}
+          SESSION_DURATION_MINUTES: ${{ inputs.session_duration_minutes || 60 }}
+          SESSION_START_TIMEOUT_MINUTES: 30
         shell: bash
         run: |
-          # Session dwell needs a Playwright budget larger than the default 60s.
-          # Duration is minutes; buffer covers navigation + screenshot + teardown.
-          if [ "$SESSION_ENABLED" = "true" ]; then
-            DURATION_MIN="${SESSION_DURATION_MINUTES:-20}"
-            # Clamp to 20–60 unless caller overrides in a custom fork.
-            if [ "$DURATION_MIN" -lt 20 ]; then DURATION_MIN=20; fi
-            if [ "$DURATION_MIN" -gt 60 ]; then DURATION_MIN=60; fi
-            # TEST_TIMEOUT_MS is milliseconds (not seconds).
-            export TEST_TIMEOUT_MS=$((DURATION_MIN * 60 * 1000 + 5 * 60 * 1000))
-            echo "Session dwell enabled: ${DURATION_MIN}m on ${BASE_URL} (TEST_TIMEOUT_MS=${TEST_TIMEOUT_MS})"
-          fi
+          echo "Session enabled=${SESSION_ENABLED}; requested dwell=${SESSION_DURATION_MINUTES}m; startup wait=${SESSION_START_TIMEOUT_MINUTES}m"
+          # Playwright computes the timeout from startup wait + dwell + teardown.
+          # Shared TypeScript helpers also enforce the 20–240 minute range.
 
           # Visual baselines are only needed for the full suite, not session dwell.
           if [ "$SESSION_ENABLED" != "true" ]; then
