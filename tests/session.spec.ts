@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { monitorPage } from '../utils/browser.js';
 import { capturePage } from '../utils/screenshots.js';
+import { createMediaMonitor } from '../utils/media-monitor.js';
 import {
   isStillOnBaseUrl,
   resolveBaseUrl,
@@ -47,44 +48,56 @@ test.describe('session dwell', () => {
         `(check every ${Math.round(checkIntervalMs / 1000)}s)`
     );
 
-    const response = await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-    expect(response, 'Navigation returned no response').not.toBeNull();
-    expect(response!.status(), 'HTTP status').toBeLessThan(400);
-    await page.waitForLoadState('load').catch(() => undefined);
-
-    let checks = 0;
-    while (Date.now() < endsAt) {
-      checks += 1;
-      const liveUrl = page.url();
-      expect(
-        isStillOnBaseUrl(liveUrl, baseUrl),
-        `Left BASE_URL during session (live=${liveUrl}, base=${baseUrl})`
-      ).toBe(true);
-
-      // Soft re-assert load state without failing on long-lived SPAs.
-      const title = (await page.title().catch(() => '')).trim();
-      expect(title, `Empty document title at check #${checks}`).not.toBe('');
-
-      if (problems.pageErrors.length) {
-        expect(problems.pageErrors, 'Uncaught exceptions during session').toEqual([]);
+    const mediaMonitor = createMediaMonitor(page, testInfo);
+    try {
+      const response = await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+      expect(response, 'Navigation returned no response').not.toBeNull();
+      expect(response!.status(), 'HTTP status').toBeLessThan(400);
+      await page.waitForLoadState('load').catch(() => undefined);
+      const mediaEnabled = process.env.SESSION_CHECK_MEDIA !== 'false';
+      if (mediaEnabled) {
+        await mediaMonitor.check(true);
       }
 
-      const remaining = endsAt - Date.now();
-      if (remaining <= 0) break;
-      await sleep(Math.min(checkIntervalMs, remaining));
+      let checks = 0;
+      while (Date.now() < endsAt) {
+        checks += 1;
+        const liveUrl = page.url();
+        expect(
+          isStillOnBaseUrl(liveUrl, baseUrl),
+          `Left BASE_URL during session (live=${liveUrl}, base=${baseUrl})`
+        ).toBe(true);
+
+        // Soft re-assert load state without failing on long-lived SPAs.
+        const title = (await page.title().catch(() => '')).trim();
+        expect(title, `Empty document title at check #${checks}`).not.toBe('');
+        if (mediaEnabled) {
+          await mediaMonitor.check();
+        }
+
+        if (problems.pageErrors.length) {
+          expect(problems.pageErrors, 'Uncaught exceptions during session').toEqual([]);
+        }
+
+        const remaining = endsAt - Date.now();
+        if (remaining <= 0) break;
+        await sleep(Math.min(checkIntervalMs, remaining));
+      }
+
+      const elapsedMin = ((Date.now() - startedAt) / 60_000).toFixed(1);
+      console.log(`Session complete after ${elapsedMin} min and ${checks} checks on ${page.url()}`);
+
+      expect(isStillOnBaseUrl(page.url(), baseUrl), 'Final URL still on BASE_URL').toBe(true);
+      await capturePage(page, baseUrl, testInfo);
+
+      // Console noise is common on third-party sites (Twitch, ads); fail only on hard crashes
+      // and hard network failures already tracked via pageerrors. Surface console for the report.
+      testInfo.annotations.push({
+        type: 'session',
+        description: `dwell=${elapsedMin}m checks=${checks} consoleErrors=${problems.consoleErrors.length} failedRequests=${problems.failedRequests.length}`
+      });
+    } finally {
+      await mediaMonitor.attachHistory();
     }
-
-    const elapsedMin = ((Date.now() - startedAt) / 60_000).toFixed(1);
-    console.log(`Session complete after ${elapsedMin} min and ${checks} checks on ${page.url()}`);
-
-    expect(isStillOnBaseUrl(page.url(), baseUrl), 'Final URL still on BASE_URL').toBe(true);
-    await capturePage(page, baseUrl, testInfo);
-
-    // Console noise is common on third-party sites (Twitch, ads); fail only on hard crashes
-    // and hard network failures already tracked via pageerrors. Surface console for the report.
-    testInfo.annotations.push({
-      type: 'session',
-      description: `dwell=${elapsedMin}m checks=${checks} consoleErrors=${problems.consoleErrors.length} failedRequests=${problems.failedRequests.length}`
-    });
   });
 });
